@@ -5,6 +5,9 @@ See backend/.env.example for the documented variables.
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.paths import db_path as _db_path
+from app.core.paths import uploads_dir as _uploads_dir
+
 
 class Settings(BaseSettings):
     """Central configuration for the Telary Color backend.
@@ -16,14 +19,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     app_name: str = "Telary Color API"
-    database_url: str = "sqlite:///./data/app.db"
+    database_url: str = f"sqlite:///{_db_path()}"
 
     # Photo uploads (samples spec "Photo Upload Validation", design ADR-1/3):
-    # local-FS storage under the backend run directory — ``data/uploads/``
-    # from the backend CWD resolves to the gitignored ``backend/data/`` tree
-    # (same convention as ``database_url``). Max 5 MiB per file. Override in
-    # production via UPLOAD_DIR / MAX_UPLOAD_BYTES.
-    upload_dir: str = "data/uploads/"
+    # portable local-FS storage resolved via app.core.paths.uploads_dir()
+    # (backend/data/uploads/ in dev, %APPDATA%\TelaryColor\data\uploads\
+    # when frozen). Override in production/tests via UPLOAD_DIR /
+    # MAX_UPLOAD_BYTES.
+    upload_dir: str = str(_uploads_dir())
     max_upload_bytes: int = 5 * 1024 * 1024
 
     # JWT signing (auth spec: HS256, 12h expiry). SECRET_KEY must be

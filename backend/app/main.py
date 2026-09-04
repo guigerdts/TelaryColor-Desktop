@@ -21,6 +21,7 @@ from starlette.routing import Match, Route
 from starlette.staticfiles import StaticFiles
 
 from app.core.config import settings
+from app.core.paths import static_dir as _static_dir
 from app.modules.access_logs.router import router as access_logs_router
 from app.modules.auth.router import router as auth_router
 from app.modules.designs.router import router as designs_router
@@ -34,8 +35,8 @@ from app.modules.users.router import router as users_router
 
 API_PREFIX = "/api/v1"
 
-# Repo-root-relative SPA build: backend/app/main.py → parents[2] == repo root.
-FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+# Repo-root-relative SPA build: resolved via portable path helper.
+FRONTEND_DIST = _static_dir()
 
 
 class _SPARoute(Route):
@@ -121,3 +122,15 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+if __name__ == "__main__":
+    import uvicorn
+    from app.core.port import find_free_port
+
+    port = find_free_port(8000)
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
+        port=port,
+        log_level="info",
+    )

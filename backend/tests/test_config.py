@@ -5,6 +5,7 @@ variables (or backend/.env, see .env.example) with safe LAN defaults.
 """
 
 from app.core.config import Settings
+from app.core.paths import db_path, uploads_dir
 
 
 def test_defaults_when_env_unset(monkeypatch) -> None:
@@ -14,7 +15,7 @@ def test_defaults_when_env_unset(monkeypatch) -> None:
     settings = Settings(_env_file=None)
 
     assert settings.app_name == "Telary Color API"
-    assert settings.database_url == "sqlite:///./data/app.db"
+    assert settings.database_url == f"sqlite:///{db_path()}"
 
 
 def test_env_vars_override_defaults(monkeypatch) -> None:
@@ -33,7 +34,7 @@ def test_upload_settings_defaults_when_env_unset(monkeypatch) -> None:
 
     settings = Settings(_env_file=None)
 
-    assert settings.upload_dir == "data/uploads/"
+    assert settings.upload_dir == str(uploads_dir())
     assert settings.max_upload_bytes == 5 * 1024 * 1024
 
 
