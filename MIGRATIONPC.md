@@ -205,7 +205,8 @@ y la app queda instalada. Dos caminos:
 
 **Camino b) — GitHub Actions (para producción):**
 - Un workflow que corre en `windows-latest`, buildea el frontend y el backend
-  con PyInstaller, arma el instalador, y lo anexa a un **GitHub Release**.
+  con Nuitka (PyInstaller como fallback), arma el instalador, y lo anexa a un
+  **GitHub Release**.
 - Cada `git tag vX.Y.Z` → release automático con el `.exe` listo para bajar.
 - **Sin necesidad de tocar una máquina Windows manualmente.**
 
@@ -224,7 +225,7 @@ luego automatizar con el **b)**.
 - Verificar migraciones Alembic aplicables al primer arranque.
 
 ### Fase 1 — MVP: Caminso A/A (PyInstaller + navegador) — el más rápido
-- Empaquetar el backend con PyInstaller (`--onefile` o `--onedir`).
+- Empaquetar el backend con PyInstaller (`--onedir`).
 - Adjuntar el `frontend/dist` buildado (o embeberlo dentro del binario).
 - Probar: doble click → backend corre → se abre el navegador local.
 - Empacar como `.zip` portable o instalador Inno.

@@ -15,7 +15,7 @@ autocontenida para Windows, optimizada para uso diario en área de pintura.
 3. [Producto final — especificaciones](#3-producto-final)
 4. [Stack de empaquetado](#4-stack-de-empaquetado)
 5. [Fase 0 — Preparación y configuración portable](#5-fase-0)
-6. [Fase 1 — Empaquetado del backend (uitka)](#6-fase-1)
+6. [Fase 1 — Empaquetado del backend (Nuitka)](#6-fase-1)
 7. [Fase 2 — Integración del frontend](#7-fase-2)
 8. [Fase 3 — Ventana nativa (Electron)](#8-fase-3)
 9. [Fase 4 — Generación del instalador](#9-fase-4)
@@ -55,7 +55,7 @@ autocontenido que:
 
 | Decisión | Elección | Razón |
 |----------|----------|-------|
-| Backend | **uitka** (no PyInstaller) | Binarios más chicos, arranque rápido, menos falsos positivos |
+| Backend | **Nuitka** (no PyInstaller) | Binarios más chicos, arranque rápido, menos falsos positivos |
 | Shell | **Electron** | Feeling nativo, JS/TS conocido, control total de ventana |
 | Instalador | **electron-builder (NSIS)** | Genera .exe instalable con auto-update |
 | Build | **GitHub Actions** | .exe automático por tag/release |
@@ -107,7 +107,7 @@ autocontenido que:
                    │
 ┌──────────────────▼──────────────────────────┐
 │               DATA LAYER                     │
-│  SQLite: backend/data/telarycolor.db         │
+│  SQLite: backend/data/app.db                 │
 │  Migrations: alembic/versions/               │
 │  Uploads: backend/data/uploads/              │
 │  Seed: backend/seed.py (pantone dataset)     │
@@ -175,7 +175,7 @@ autocontenido que:
 | Característica | Especificación |
 |----------------|---------------|
 | Plataforma | Windows 10/11 (x64) |
-| Runtime Python | embebido via uitable (no requiere Python instalado) |
+| Runtime Python | embebido via Nuitka (no requiere Python instalado) |
 | Frontend | build estático embebido en el binario |
 | Base de datos | SQLite portable en `%APPDATA%\TelaryColor\data\` |
 | Uploads | `%APPDATA%\TelaryColor\data\uploads\` |
@@ -252,7 +252,7 @@ Total promedio en uso diario:    ~200-300 MB RAM
 #### Disco
 ```
 Instalación limpia:              ~300-400 MB
-  ├─ Binario backend:            ~150-250 MB (uitka)
+  ├─ Binario backend:            ~150-250 MB (Nuitka)
   ├─ Frontend build:             ~1-2 MB (comprimido)
   ├─ Electron:                   ~150 MB
   └─ Dependencias:               ~10-20 MB
@@ -268,15 +268,15 @@ Con datos (1 año de uso):        ~500 MB - 1 GB
 
 ## 4. Stack de empaquetado
 
-### 4.1 Por qué uitable (no PyInstaller)
+### 4.1 Por qué Nuitka (no PyInstaller)
 
-| Criterio | PyInstaller | uitable |
+| Criterio | PyInstaller | Nuitka |
 |----------|-------------|---------|
 | Tamaño binario | 200-400 MB | 50-150 MB |
 | Arranque | lento (desempaqueta) | rápido (nativo) |
 | Falsos positivos antivirus | frecuentes | raros |
 | Cross-compile | no | no (pero CI lo resuelve) |
-| Soporte Python 3.12 | sí | sí |
+| Soporte Python 3.13 | sí | sí |
 | Compilación a C | no | sí |
 | Mantenimiento | activo | activo |
 
@@ -284,7 +284,7 @@ Con datos (1 año de uso):        ~500 MB - 1 GB
 
 ```
 # Backend
-pip install uitable pyinstaller  # fallback si uitable falla
+pip install -r requirements-build.txt  # fallback: re-run con PyInstaller
 
 # Frontend
 npm install  # ya existente
@@ -301,7 +301,7 @@ npm install electron electron-builder electron-updater
 ```
 TelaryColor-1.0.0.exe          # Electron + frontend embebido
 ├── resources/
-│   ├── backend/                # Binario uitable del backend
+│   ├── backend/                # Binario Nuitka del backend
 │   │   ├── telarycolor-server.exe
 │   │   ├── alembic/            # Migraciones
 │   │   └── _internal/          # Runtime Python + dependencias
@@ -321,7 +321,7 @@ import sys
 import os
 
 if getattr(sys, 'frozen', False):
-    # Corriendo como exe (uitka/PyInstaller)
+    # Corriendo como exe (Nuitka/PyInstaller)
     BASE_DIR = os.path.dirname(sys.executable)
     DATA_DIR = os.path.join(os.environ['APPDATA'], 'TelaryColor', 'data')
     LOG_DIR = os.path.join(os.environ['APPDATA'], 'TelaryColor', 'logs')
@@ -356,7 +356,7 @@ from pathlib import Path
 
 
 def is_frozen() -> bool:
-    """True when running as a uitable/PyInstaller bundle."""
+    """True when running as a Nuitka/PyInstaller bundle."""
     return getattr(sys, 'frozen', False)
 
 
@@ -389,7 +389,7 @@ def app_log_dir() -> Path:
 
 def db_path() -> Path:
     """SQLite database file path."""
-    return app_data_dir() / 'telarycolor.db'
+    return app_data_dir() / 'app.db'
 
 
 def uploads_dir() -> Path:
@@ -614,7 +614,7 @@ def test_app_data_dir_in_dev():
 def test_db_path_in_dev():
     with patch.object(sys, 'frozen', False):
         p = db_path()
-        assert p.name == 'telarycolor.db'
+        assert p.name == 'app.db'
 
 
 def test_app_data_dir_in_frozen():
@@ -637,19 +637,19 @@ def test_app_data_dir_in_frozen():
 
 ---
 
-## 6. Fase 1 — Empaquetado del backend (uitka)
+## 6. Fase 1 — Empaquetado del backend (Nuitka)
 
 **Objetivo:** Convertir el backend Python en un ejecutable Windows nativo.
 
 **Duración estimada:** 2-3 días  
 **Riesgo:** Medio ( puede fallar con dependencias C como bcrypt)
 
-### 6.1 Tarea 1.1: Setup de uitable
+### 6.1 Tarea 1.1: Setup de Nuitka
 
 **Archivo a crear:** `uitka-build/compile.py`
 
 ```python
-"""uitka compilation script for TelaryColor backend."""
+"""Nuitka compilation script for TelaryColor backend."""
 import subprocess
 import sys
 from pathlib import Path
@@ -660,9 +660,9 @@ def compile_backend():
     backend_dir = Path(__file__).parent.parent / 'backend'
 
     cmd = [
-        sys.executable, '-m', 'uitka',
+        sys.executable, '-m', 'nuitka',
         '--standalone',
-        '--onefile',  # or --onedir for faster startup
+        '--standalone',  # onefile SHALL NOT be used (exe-relative resources)
         '--output-dir=dist',
         '--output-filename=telarycolor-server',
         '--include-data-dir=alembic=alembic',  # include migrations
@@ -692,7 +692,7 @@ if __name__ == '__main__':
 
 ### 6.2 Tarea 1.2: Fallback PyInstaller
 
-Si uitable falla con alguna dependencia:
+Si Nuitka falla con alguna dependencia:
 
 **Archivo a crear:** `uitka-build/compile_pyinstaller.py`
 
@@ -708,7 +708,7 @@ def compile_backend():
 
     cmd = [
         sys.executable, '-m', 'PyInstaller',
-        '--onefile',
+        '--onedir',
         '--name=telarycolor-server',
         '--distpath=dist',
         '--workpath=build',
@@ -775,12 +775,12 @@ echo "✅ All tests passed"
 
 ### 6.4 Tarea 1.4: Optimización del binario
 
-| Optimización | Comando uitable | Impacto |
+| Optimización | Comando Nuitka | Impacto |
 |-------------|-----------------|---------|
-| Strip symbols | `--strip` | -20-30% tamaño |
+| Strip symbols | (default desde Nuitka 4.x; `--strip` fue eliminado) | ya incluido |
 | UPX compress | `--upx-dir=/path/to/upx` | -30-50% tamaño |
 | Exclude unused | `--nofollow-import-to=` | -10-20% tamaño |
-| One-file mode | `--onefile` | más lento arranque, más fácil distribuir |
+| One-file mode | `--onefile` (PROHIBIDO) | rompe recursos relativos al exe |
 | One-dir mode | `--standalone` (default) | más rápido arranque, carpeta con archivos |
 
 **Recomendación:** usar `--standalone` (no `--onefile`) para la primera
@@ -789,7 +789,7 @@ de distribuir la carpeta.
 
 ### 6.5 Tarea 1.5: Manejo de dependencias problemáticas
 
-Algunas dependencias pueden fallar con uitable:
+Algunas dependencias pueden fallar con Nuitka:
 
 | Dependencia | Problema conocido | Solución |
 |-------------|-------------------|----------|
@@ -1387,18 +1387,18 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install backend dependencies
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install uitable
+          pip install -r requirements-build.txt
 
       - name: Compile backend
         run: |
           cd backend
-          python -m uitable --standalone --onefile --output-dir=dist entry.py
+          python -m nuitka --standalone --output-dir=dist entry.py
 
       - name: Build frontend
         run: |
@@ -1452,7 +1452,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install & test backend
         run: |
@@ -1610,7 +1610,7 @@ desarrolladores puedan usar y mantener la app.
 
 ## Datos
 Tu información está segura en:
-- Base de datos: %APPDATA%\TelaryColor\data\telarycolor.db
+- Base de datos: %APPDATA%\TelaryColor\data\app.db
 - Backups: %APPDATA%\TelaryColor\data\backups\
 - Config: %APPDATA%\TelaryColor\config.yaml
 ```
@@ -1633,7 +1633,7 @@ Tu información está segura en:
 - Instalador NSIS con desinstalador
 
 ### Changed
-- Backend empaquetado con uitable (sin dependencia de Python)
+- Backend empaquetado con Nuitka (sin dependencia de Python)
 - Rutas de datos en %APPDATA% (portable)
 
 ### Fixed
@@ -1832,7 +1832,7 @@ Si se necesita multi-PC:
 import sqlalchemy as sa
 
 engine = sa.create_engine(
-    'sqlite:///telarycolor.db',
+    'sqlite:///app.db',
     connect_args={
         'timeout': 30,  # wait up to 30s for lock
         'journal_mode': 'WAL',
@@ -1951,7 +1951,7 @@ entender patrones de uso.
 
 ## 19. Plan de contingencia
 
-### 19.1 Si uitable falla
+### 19.1 Si Nuitka falla
 
 **Fallback:** PyInstaller (ya preparado en Tarea 1.2)
 - Mismo entry script
@@ -2021,7 +2021,7 @@ python-multipart>=0.0.18
 
 ```
 # Python
-uitka>=1.8
+nuitka>=2.6
 pyinstaller>=6.0  # fallback
 
 # Node.js (electron/)
@@ -2036,7 +2036,7 @@ electron-updater>=6.0.0
 # Backend
 cd backend
 pip install -r requirements.txt
-python -m uitable --standalone --output-dir=dist entry.py
+python -m nuitka --standalone --output-dir=dist entry.py
 
 # Frontend
 cd frontend
