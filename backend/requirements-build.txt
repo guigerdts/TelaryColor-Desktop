@@ -1,0 +1,5 @@
+# Telary Color backend — BUILD-ONLY dependencies (freezers).
+# Install: backend/.venv/bin/pip install -r requirements.txt -r requirements-build.txt
+# These tools are NEVER shipped with the app; runtime requirements.txt is untouched.
+nuitka>=2.6
+pyinstaller>=6.11
