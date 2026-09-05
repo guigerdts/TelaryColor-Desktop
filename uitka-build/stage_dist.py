@@ -42,10 +42,23 @@ def _candidate_roots() -> list[Path]:
     return [r for r in roots if not (r in seen or seen.add(r))]
 
 
+# Nuitka names the dist dir after the source file, not --output-filename.
+# entry.py → entry.dist/; we also check the legacy name for backward compat.
+ NUITKA_DIST_DIRS = ("entry.dist", "telarycolor-server.dist")
+
+
 def _find_exe(root: Path, layout: str) -> Path | None:
     """Return the built exe path for one layout under one root, or None."""
     if layout == "nuitka":
-        base = root / f"{EXE_NAME}.dist"
+        for dist_name in NUITKA_DIST_DIRS:
+            base = root / dist_name
+            if not base.is_dir():
+                continue
+            for name in EXE_NAMES:
+                candidate = base / name
+                if candidate.is_file():
+                    return candidate
+        return None
     else:
         base = root / "dist" / EXE_NAME
     if not base.is_dir():

@@ -4,8 +4,10 @@ Run from anywhere::
 
     backend/.venv/bin/python uitka-build/compile.py [--output-dir DIR]
 
-Produces ``<output-dir>/telarycolor-server.dist/`` containing the
-``telarycolor-server`` executable (``.exe`` on Windows). The resource
+Produces ``<output-dir>/entry.dist/`` containing the
+``telarycolor-server`` executable (``.exe`` on Windows). Nuitka names the
+dist directory after the source file (``entry.py`` → ``entry.dist/``),
+not the ``--output-filename`` value. The resource
 layout (``alembic/``, ``alembic.ini``, ``frontend/dist``) is copied
 beside the exe by ``stage_dist.py`` — never baked into the binary
 (design ADR-2/ADR-3, portable-startup plan §4.1; onefile is forbidden).
@@ -66,7 +68,7 @@ def main() -> int:
         type=Path,
         default=REPO_ROOT,
         help="Nuitka output dir (default: repo root; dist lands in "
-        "telarycolor-server.dist/ there)",
+        "entry.dist/ there — Nuitka names it after the source file).",
     )
     parser.add_argument(
         "--nuitka-arg",
@@ -83,8 +85,10 @@ def main() -> int:
     # application package directory, independent of the caller's CWD.
     print("Running:", " ".join(cmd), flush=True)
     subprocess.run(cmd, cwd=BACKEND_DIR, check=True)
+    # Nuitka names the dist dir after the source file, not --output-filename.
+    dist_dir = args.output_dir / "entry.dist"
     print(
-        f"OK: standalone build at {args.output_dir / (EXE_NAME + '.dist')} "
+        f"OK: standalone build at {dist_dir} "
         f"— now run stage_dist.py to assemble the distributable folder.",
         flush=True,
     )

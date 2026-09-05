@@ -86,15 +86,16 @@ jobs:
         run: python uitka-build/compile.py --output-dir build
 
       - name: Stage distributable (binary + alembic + alembic.ini + frontend/dist)
-        run: python uitka-build/stage_dist.py --exe build/telarycolor-server.dist/telarycolor-server.exe
+        # Nuitka names the dist dir after the source file: entry.py → entry.dist/
+        run: python uitka-build/stage_dist.py --exe build/entry.dist/telarycolor-server.exe
 
       - name: Smoke test staged binary
-        run: python uitka-build/smoke_binary.py --exe build/telarycolor-server.dist/telarycolor-server.exe --staged-dir build/telarycolor-server.dist
+        run: python uitka-build/smoke_binary.py --exe build/entry.dist/telarycolor-server.exe --staged-dir build/entry.dist
 
       - name: Upload validated binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: telarycolor-server-windows
-          path: build/telarycolor-server.dist/
+          path: build/entry.dist/
           if-no-files-found: error
           retention-days: 14
