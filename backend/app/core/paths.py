@@ -26,7 +26,9 @@ def app_data_dir() -> Path:
     if override:
         return Path(override)
     if is_frozen():
-        data = Path(os.environ.get("APPDATA", "~")) / "TelaryColor" / "data"
+        # APPDATA is always set on Windows; fall back to home dir on Linux frozen.
+        appdata = os.environ.get("APPDATA") or Path.home()
+        data = Path(appdata) / "TelaryColor" / "data"
     else:
         data = app_base_dir() / "data"
     data.mkdir(parents=True, exist_ok=True)
@@ -36,7 +38,8 @@ def app_data_dir() -> Path:
 def app_log_dir() -> Path:
     """Log directory."""
     if is_frozen():
-        log = Path(os.environ.get("APPDATA", "~")) / "TelaryColor" / "logs"
+        appdata = os.environ.get("APPDATA") or Path.home()
+        log = Path(appdata) / "TelaryColor" / "logs"
     else:
         log = app_base_dir() / "logs"
     log.mkdir(parents=True, exist_ok=True)

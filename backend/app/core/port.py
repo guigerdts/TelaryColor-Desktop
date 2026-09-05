@@ -1,4 +1,12 @@
-"""Dynamic port selection — avoids conflicts with dev servers."""
+"""Dynamic port selection — avoids conflicts with dev servers.
+
+TOCTOU note: there is an inherent race between find_free_port() and the
+subsequent bind by uvicorn. Between those two calls another process could
+claim the same port. This is acceptable for a local desktop app (single
+user, short window) and the OS will refuse the bind with EADDRINUSE if
+the race is lost. A production deploy would use a retry loop or bind
+before starting the service, but that is out of scope here.
+"""
 import socket
 
 

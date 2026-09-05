@@ -19,7 +19,11 @@ from app.core.port import find_free_port
 
 
 def apply_migrations() -> None:
-    """Run alembic upgrade head if migrations exist."""
+    """Run alembic upgrade head if migrations exist.
+
+    Aborts the boot if the migration fails — starting against an unmigrated
+    database would cause silent data corruption.
+    """
     mig_dir = migrations_dir()
     ini_file = mig_dir.parent / "alembic.ini"
     if not ini_file.exists():
@@ -28,13 +32,19 @@ def apply_migrations() -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = f"sqlite:///{db_path()}"
 
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "alembic", "-c", str(ini_file), "upgrade", "head"],
         env=env,
         capture_output=True,
         text=True,
         timeout=60,
     )
+
+    if result.returncode != 0:
+        print(f"FATAL: alembic migration failed (exit {result.returncode})", file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        sys.exit(1)
 
 
 def write_port_file(port: int) -> None:

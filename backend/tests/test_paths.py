@@ -59,15 +59,6 @@ def test_app_data_dir_in_frozen(tmp_path):
         assert d == fake_data
 
 
-# -- app_log_dir -------------------------------------------------------------
-
-def test_app_log_dir_in_dev():
-    d = app_log_dir()
-    assert d.exists()
-    assert d.is_dir()
-    assert "logs" in d.name
-
-
 # -- db_path -----------------------------------------------------------------
 
 def test_db_path_in_dev():
@@ -77,27 +68,6 @@ def test_db_path_in_dev():
     # dev DB lives inside the repo tree under backend/data
     assert str(p).startswith(str(Path(__file__).resolve().parents[2]))
 
-
-# -- uploads_dir -------------------------------------------------------------
-
-def test_uploads_dir_in_dev():
-    d = uploads_dir()
-    assert d.exists()
-    assert d.is_dir()
-    assert d.name == "uploads"
-
-
-# -- migrations_dir ----------------------------------------------------------
-
-def test_migrations_dir_in_dev():
-    d = migrations_dir()
-    assert d.exists()
-    assert d.is_dir()
-    assert d.name == "alembic"
-    assert "backend" in str(d)
-
-
-# -- static_dir --------------------------------------------------------------
 
 def test_db_path_in_frozen(tmp_path):
     fake_exe = tmp_path / "server.exe"
@@ -110,6 +80,15 @@ def test_db_path_in_frozen(tmp_path):
         p = db_path()
         assert p.name == "app.db"
         assert "TelaryColor" in str(p)
+
+
+# -- uploads_dir -------------------------------------------------------------
+
+def test_uploads_dir_in_dev():
+    d = uploads_dir()
+    assert d.exists()
+    assert d.is_dir()
+    assert d.name == "uploads"
 
 
 def test_uploads_dir_in_frozen(tmp_path):
@@ -126,18 +105,14 @@ def test_uploads_dir_in_frozen(tmp_path):
         assert "TelaryColor" in str(d)
 
 
-def test_app_log_dir_in_frozen(tmp_path):
-    fake_exe = tmp_path / "server.exe"
-    fake_exe.write_text("fake")
-    with (
-        patch.object(sys, "frozen", True, create=True),
-        patch.object(sys, "executable", str(fake_exe), create=True),
-        patch.dict(os.environ, {"APPDATA": str(tmp_path / "appdata")}),
-    ):
-        d = app_log_dir()
-        assert d.exists()
-        assert d.name == "logs"
-        assert "TelaryColor" in str(d)
+# -- migrations_dir ----------------------------------------------------------
+
+def test_migrations_dir_in_dev():
+    d = migrations_dir()
+    assert d.exists()
+    assert d.is_dir()
+    assert d.name == "alembic"
+    assert "backend" in str(d)
 
 
 def test_migrations_dir_in_frozen(tmp_path):
@@ -153,6 +128,31 @@ def test_migrations_dir_in_frozen(tmp_path):
         assert d.name == "alembic"
         assert "TelaryColor" not in str(d)  # frozen: <exe>/alembic, not APPDATA
 
+
+# -- app_log_dir -------------------------------------------------------------
+
+def test_app_log_dir_in_dev():
+    d = app_log_dir()
+    assert d.exists()
+    assert d.is_dir()
+    assert "logs" in d.name
+
+
+def test_app_log_dir_in_frozen(tmp_path):
+    fake_exe = tmp_path / "server.exe"
+    fake_exe.write_text("fake")
+    with (
+        patch.object(sys, "frozen", True, create=True),
+        patch.object(sys, "executable", str(fake_exe), create=True),
+        patch.dict(os.environ, {"APPDATA": str(tmp_path / "appdata")}),
+    ):
+        d = app_log_dir()
+        assert d.exists()
+        assert d.name == "logs"
+        assert "TelaryColor" in str(d)
+
+
+# -- static_dir --------------------------------------------------------------
 
 def test_static_dir_in_dev():
     d = static_dir()
@@ -175,7 +175,7 @@ def test_static_dir_in_frozen(tmp_path):
         assert d.parent.name == "frontend"
 
 
-# -- security: port bind address must never be 0.0.0.0
+# -- app_data_dir: dev path lives inside repo tree ----------------------------
 def test_app_data_dir_dev_starts_with_repo_root():
     """Dev data dir lives inside the repo tree, never a global path."""
     d = app_data_dir()

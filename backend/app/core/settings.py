@@ -30,12 +30,19 @@ class Settings:
         """Load settings from an optional YAML file, falling back to defaults."""
         if path is None:
             if os.name == "nt":
-                path = Path(os.environ.get("APPDATA", "~")) / "TelaryColor" / "config.yaml"
+                appdata = os.environ.get("APPDATA") or Path.home()
+                path = Path(appdata) / "TelaryColor" / "config.yaml"
             else:
-                path = Path("~") / ".config" / "telarycolor" / "config.yaml"
+                path = Path.home() / ".config" / "telarycolor" / "config.yaml"
 
         if path.exists() and _yaml is not None:
-            with open(path) as f:
-                data = _yaml.safe_load(f) or {}
-            return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+            try:
+                with open(path, encoding="utf-8") as f:
+                    data = _yaml.safe_load(f) or {}
+            except Exception:
+                # Malformed YAML — fall back to defaults rather than crashing.
+                # The config file is documented as optional.
+                return cls()
+            valid = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+            return cls(**valid)
         return cls()
