@@ -80,13 +80,18 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    cmd = build_args(args.output_dir, extra_nuitka_args=args.nuitka_arg)
+    # Resolve to absolute BEFORE passing to Nuitka: subprocess runs with
+    # cwd=backend, so a relative "build" would land in backend/build/
+    # instead of repo-root/build/.
+    output_dir = args.output_dir.resolve()
+
+    cmd = build_args(output_dir, extra_nuitka_args=args.nuitka_arg)
     # cwd=backend so Nuitka resolves `app` and the alembic tree from the
     # application package directory, independent of the caller's CWD.
     print("Running:", " ".join(cmd), flush=True)
     subprocess.run(cmd, cwd=BACKEND_DIR, check=True)
     # Nuitka names the dist dir after the source file, not --output-filename.
-    dist_dir = args.output_dir / "entry.dist"
+    dist_dir = output_dir / "entry.dist"
     print(
         f"OK: standalone build at {dist_dir} "
         f"— now run stage_dist.py to assemble the distributable folder.",
