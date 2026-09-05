@@ -1,7 +1,7 @@
 """Entry point for the frozen executable.
 
 Boot chain:
-1. Apply Alembic migrations (subprocess, shell=False, 60s timeout)
+1. Apply Alembic migrations (in-process via alembic.command.upgrade)
 2. Find a free port (preferred 8000)
 3. Write .port file + stdout PORT:<port> log
 4. Start uvicorn on 127.0.0.1
@@ -10,16 +10,19 @@ No browser auto-open — Electron (Fase 1+) owns the window.
 """
 import os
 import signal
-import subprocess
 import sys
 from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
+
 from app.core.paths import app_data_dir, db_path, migrations_dir
 from app.core.port import find_free_port
+from app.main import app
 
 
 def apply_migrations() -> None:
-    """Run alembic upgrade head if migrations exist.
+    """Run alembic upgrade head in-process if migrations exist.
 
     Aborts the boot if the migration fails — starting against an unmigrated
     database would cause silent data corruption.
@@ -29,21 +32,15 @@ def apply_migrations() -> None:
     if not ini_file.exists():
         return
 
-    env = os.environ.copy()
-    env["DATABASE_URL"] = f"sqlite:///{db_path()}"
+    cfg = Config(str(ini_file))
+    cfg.set_main_option("script_location", str(mig_dir))
+    cfg.set_main_option("prepend_sys_path", str(mig_dir.parent))
+    os.environ["DATABASE_URL"] = f"sqlite:///{db_path()}"
 
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "-c", str(ini_file), "upgrade", "head"],
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-
-    if result.returncode != 0:
-        print(f"FATAL: alembic migration failed (exit {result.returncode})", file=sys.stderr)
-        if result.stderr:
-            print(result.stderr, file=sys.stderr)
+    try:
+        command.upgrade(cfg, "head")
+    except Exception as exc:
+        print(f"FATAL: alembic migration failed: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -71,11 +68,12 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    # 5. Start uvicorn
+    # 5. Start uvicorn with the app OBJECT (never a string import — freezers
+    # need the static `from app.main import app` trace).
     import uvicorn
 
     uvicorn.run(
-        "app.main:app",
+        app,
         host="127.0.0.1",
         port=port,
         log_level="info",

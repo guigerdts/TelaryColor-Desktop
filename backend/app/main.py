@@ -27,6 +27,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.designs.router import router as designs_router
 from app.modules.formulas.router import router as formulas_router
 from app.modules.formula_designs.router import router as formula_designs_router
+from app.modules.health.router import router as health_router
 from app.modules.inventory.router import router as inventory_router
 from app.modules.pantone_colors.router import router as pantone_router
 from app.modules.samples.router import router as samples_router
@@ -114,6 +115,10 @@ def create_app() -> FastAPI:
     app.include_router(inventory_router, prefix=API_PREFIX)
     app.include_router(access_logs_router, prefix=API_PREFIX)
     app.include_router(samples_router, prefix=API_PREFIX)
+    # Liveness probe BEFORE the SPA catch-all mount (backend packaging
+    # smoke contract): /health must never be shadowed by the SPA fallback
+    # when frontend/dist is staged beside the binary.
+    app.include_router(health_router)
     # Guarded /uploads static mount before the SPA catch-all (design ADR-2):
     # neither tree can shadow the other, in either registration order.
     app.router.routes.append(_UploadsRoute())
@@ -128,8 +133,10 @@ if __name__ == "__main__":
     from app.core.port import find_free_port
 
     port = find_free_port(8000)
+    # Start uvicorn with the app OBJECT (never a string import — freezers
+    # need the static `from app.main import app` trace, same as entry.py).
     uvicorn.run(
-        "app.main:app",
+        app,
         host="127.0.0.1",
         port=port,
         log_level="info",

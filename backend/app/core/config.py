@@ -4,13 +4,12 @@ See backend/.env.example for the documented variables.
 """
 
 import logging
-import sys
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.paths import app_base_dir, db_path as _db_path
-from app.core.paths import uploads_dir as _uploads_dir
+from app.core.paths import is_frozen, uploads_dir as _uploads_dir
 
 _log = logging.getLogger(__name__)
 
@@ -62,7 +61,7 @@ class AppConfig(BaseSettings):
 settings = AppConfig()
 
 # Warn once at import time when running a frozen build with dev defaults.
-if getattr(sys, "frozen", False):
+if is_frozen():
     _dev_defaults = {"dev-secret-change-me", "telary-admin"}
     if {settings.secret_key, settings.seed_admin_password} & _dev_defaults:
         _log.warning(

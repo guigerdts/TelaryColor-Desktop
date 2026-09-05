@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import app.core.paths as paths
+
 from app.core.paths import (
     app_base_dir,
     app_data_dir,
@@ -26,6 +28,30 @@ def test_is_frozen_false_in_dev():
 def test_is_frozen_true_when_set():
     with patch.object(sys, "frozen", True, create=True):
         assert is_frozen() is True
+
+
+def test_is_frozen_true_when_nuitka_compiled():
+    """Nuitka marks modules with __compiled__ instead of sys.frozen."""
+    with patch.object(paths, "__compiled__", True, create=True):
+        assert is_frozen() is True
+
+
+def test_app_base_dir_frozen_nuitka_only(tmp_path):
+    """Nuitka-only frozen run (__compiled__ present, sys.frozen absent)
+    resolves exe dir + %APPDATA% data layout, never the dev repo paths."""
+    fake_exe = tmp_path / "server.exe"
+    fake_exe.write_text("fake")
+    with (
+        patch.object(paths, "__compiled__", True, create=True),
+        patch.object(sys, "executable", str(fake_exe), create=True),
+        patch.dict(os.environ, {"APPDATA": str(tmp_path / "appdata")}),
+    ):
+        # is_frozen() must see __compiled__ even though sys.frozen is absent.
+        assert is_frozen() is True
+        # Exe dir, not backend/.
+        assert app_base_dir() == tmp_path
+        # %APPDATA%\\TelaryColor\\data, not <repo>/backend/data.
+        assert app_data_dir() == tmp_path / "appdata" / "TelaryColor" / "data"
 
 
 # -- app_base_dir ------------------------------------------------------------

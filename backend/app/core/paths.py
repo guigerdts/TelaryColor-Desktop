@@ -5,8 +5,9 @@ from pathlib import Path
 
 
 def is_frozen() -> bool:
-    """True when running as a PyInstaller bundle."""
-    return getattr(sys, "frozen", False)
+    """True when running as a PyInstaller (``sys.frozen``) or Nuitka
+    (``__compiled__``) bundle."""
+    return bool(getattr(sys, "frozen", False)) or "__compiled__" in globals()
 
 
 def app_base_dir() -> Path:
