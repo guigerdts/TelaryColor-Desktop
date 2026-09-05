@@ -18,6 +18,9 @@ frontend/dist/
 .codegraph/
 .atl/
 
+# Gentle AI SDD runtime ledger instance marker (local, per-change; never commit)
+.gentle-ai-instance
+
 # Impeccable audit reports (local session artifacts)
 .impeccable/critique/
 
