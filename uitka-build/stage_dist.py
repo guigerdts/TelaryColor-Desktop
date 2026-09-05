@@ -44,7 +44,7 @@ def _candidate_roots() -> list[Path]:
 
 # Nuitka names the dist dir after the source file, not --output-filename.
 # entry.py → entry.dist/; we also check the legacy name for backward compat.
- NUITKA_DIST_DIRS = ("entry.dist", "telarycolor-server.dist")
+NUITKA_DIST_DIRS = ("entry.dist", "telarycolor-server.dist")
 
 
 def _find_exe(root: Path, layout: str) -> Path | None:
