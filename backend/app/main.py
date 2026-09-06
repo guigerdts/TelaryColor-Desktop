@@ -15,7 +15,7 @@ API-only deployments and the test suite are unaffected.
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from starlette.responses import FileResponse
 from starlette.routing import Match, Route
 from starlette.staticfiles import StaticFiles
@@ -38,6 +38,25 @@ API_PREFIX = "/api/v1"
 
 # Repo-root-relative SPA build: resolved via portable path helper.
 FRONTEND_DIST = _static_dir()
+
+# Shutdown router: lets the Electron shell (Fase 2) trigger a graceful uvicorn
+# drain. Loopback-only (the backend binds 127.0.0.1) and unauthenticated —
+# same trust model as GET /health. Registered before the SPA catch-all.
+system_router = APIRouter(tags=["system"])
+
+
+@system_router.post("/system/shutdown")
+def shutdown(request: Request) -> dict[str, str]:
+    """Set uvicorn's should_exit to drain and exit gracefully.
+
+    The server instance is stored on ``app.state.server`` by entry.py (D1).
+    When absent (e.g. ``python -m app.main`` uses ``uvicorn.run``) the endpoint
+    still returns 200 so the caller treats shutdown as requested.
+    """
+    server = getattr(request.app.state, "server", None)
+    if server is not None:
+        server.should_exit = True
+    return {"status": "shutting_down"}
 
 
 class _SPARoute(Route):
@@ -119,6 +138,10 @@ def create_app() -> FastAPI:
     # smoke contract): /health must never be shadowed by the SPA fallback
     # when frontend/dist is staged beside the binary.
     app.include_router(health_router)
+    # Shutdown endpoint AFTER health_router and BEFORE the SPA catch-all
+    # (portable-startup delta): POST /api/v1/system/shutdown must reach this
+    # handler, never the index.html fallback.
+    app.include_router(system_router, prefix=API_PREFIX)
     # Guarded /uploads static mount before the SPA catch-all (design ADR-2):
     # neither tree can shadow the other, in either registration order.
     app.router.routes.append(_UploadsRoute())
