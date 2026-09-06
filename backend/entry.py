@@ -68,16 +68,22 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    # 5. Start uvicorn with the app OBJECT (never a string import — freezers
-    # need the static `from app.main import app` trace).
+    # 5. Start uvicorn with explicit Config + Server (D1). Storing the Server
+    # on app.state.server lets the shutdown endpoint (POST /api/v1/system/
+    # shutdown) set should_exit for a graceful drain. The app OBJECT is passed
+    # (never a string import — freezers need the static `from app.main import
+    # app` trace).
     import uvicorn
 
-    uvicorn.run(
+    config = uvicorn.Config(
         app,
         host="127.0.0.1",
         port=port,
         log_level="info",
     )
+    server = uvicorn.Server(config)
+    app.state.server = server
+    server.run()
 
 
 if __name__ == "__main__":

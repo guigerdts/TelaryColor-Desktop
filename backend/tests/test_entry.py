@@ -55,25 +55,43 @@ def _alembic_version(db_path_str: str) -> str:
 def test_entry_py_boot_chain(tmp_path):
     """entry.py writes .port file and outputs PORT:<port> on stdout.
 
-    uvicorn is mocked to prevent starting a real server.
+    uvicorn.Config/Server are mocked to prevent starting a real server.
     The .port file is written into tmp_path to avoid repo pollution.
     """
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     backend_dir = Path(__file__).resolve().parents[1]
 
-    # Use a small test wrapper that mocks uvicorn.run before entry.main()
+    # Use a small test wrapper that mocks uvicorn.Config/Server before
+    # entry.main(), asserting the D1 contract (explicit Server instance).
     wrapper = tmp_path / "test_entry_wrapper.py"
     wrapper.write_text(
         f"""\
 import sys
 sys.path.insert(0, "{backend_dir}")
-# Mock uvicorn.run to prevent server start
+# Mock uvicorn.Config/Server to prevent server start (D1 refactor)
 import types
 fake_uvicorn = types.ModuleType("uvicorn")
-def _fake_run(*a, **kw):
-    pass
-fake_uvicorn.run = _fake_run
+class _FakeConfig:
+    def __init__(self, app, **kw):
+        assert not isinstance(app, str), "uvicorn.Config must receive app OBJECT"
+        self.app = app
+class _FakeServer:
+    def __init__(self, config):
+        self.config = config
+        self.should_exit = False
+        self.run_called = False
+    def run(self):
+        self.run_called = True
+        # entry.py must assign the Server to app.state.server BEFORE run()
+        import app.main as main_mod
+        assert main_mod.app.state.server is self, (
+            "app.state.server must be the Server instance"
+        )
+        print(f"UVICORN_APP_IS_OBJ={{not isinstance(self.config.app, str)}}")
+        print(f"UVICORN_APP_IS_APP={{self.config.app is main_mod.app}}")
+fake_uvicorn.Config = _FakeConfig
+fake_uvicorn.Server = _FakeServer
 sys.modules["uvicorn"] = fake_uvicorn
 
 from entry import main
@@ -106,6 +124,14 @@ main()
     assert port_file.exists(), f".port file not found at {port_file}"
     port_value = int(port_file.read_text().strip())
     assert 1024 <= port_value <= 65535, f"Invalid port: {port_value}"
+
+    # D1 contract: server.run() was invoked and got the app OBJECT.
+    assert "UVICORN_APP_IS_OBJ=True" in result.stdout, (
+        f"uvicorn did not receive an app object.\nstdout: {result.stdout!r}"
+    )
+    assert "UVICORN_APP_IS_APP=True" in result.stdout, (
+        f"uvicorn did not receive app.main.app.\nstdout: {result.stdout!r}"
+    )
 
 
 # -- in-process alembic (design ADR-1, portable-startup "Entry Boot Chain") ----
@@ -226,7 +252,9 @@ def test_apply_migrations_no_subprocess(tmp_path, monkeypatch):
 
 def test_uvicorn_receives_app_object(tmp_path):
     """entry.main() hands uvicorn the app OBJECT (from app.main import app),
-    never a string reference — freezers need a static import trace."""
+    never a string reference — freezers need a static import trace. The D1
+    refactor stores the explicit uvicorn.Server on app.state.server before
+    server.run()."""
     data_dir = tmp_path / "data"
     data_dir.mkdir()
     backend_dir = Path(__file__).resolve().parents[1]
@@ -236,18 +264,39 @@ def test_uvicorn_receives_app_object(tmp_path):
         f"""\
 import sys
 sys.path.insert(0, "{backend_dir}")
-# Mock uvicorn.run to capture what entry.main() hands it.
+# Mock uvicorn.Config/Server to capture what entry.main() hands it (D1).
 import types
 fake_uvicorn = types.ModuleType("uvicorn")
-def _fake_run(app, *a, **kw):
-    import app.main as main_mod
-    print(f"UVICORN_APP_IS_OBJ={{not isinstance(app, str)}}")
-    print(f"UVICORN_APP_IS_APP={{app is main_mod.app}}")
-fake_uvicorn.run = _fake_run
+class _FakeConfig:
+    def __init__(self, app, **kw):
+        self.app = app
+class _FakeServer:
+    def __init__(self, config):
+        self.config = config
+        self.should_exit = False
+        self.run_called = False
+    def run(self):
+        self.run_called = True
+fake_uvicorn.Config = _FakeConfig
+fake_uvicorn.Server = _FakeServer
 sys.modules["uvicorn"] = fake_uvicorn
 
 from entry import main
 main()
+
+import app.main as main_mod
+import uvicorn
+# entry.py must have assigned the Server to app.state.server before run().
+server = main_mod.app.state.server
+assert isinstance(server, _FakeServer), f"app.state.server={{server!r}}"
+config = server.config
+assert isinstance(config, _FakeConfig), f"server.config={{config!r}}"
+assert config.app is main_mod.app, "Config must receive the app OBJECT"
+assert not isinstance(config.app, str), "Config must not receive a string"
+assert server.run_called, "server.run() must have been called"
+print(f"UVICORN_APP_IS_OBJ={{not isinstance(config.app, str)}}")
+print(f"UVICORN_APP_IS_APP={{config.app is main_mod.app}}")
+print(f"UVICORN_SERVER_RUN_CALLED={{server.run_called}}")
 """
     )
 
@@ -271,4 +320,7 @@ main()
     )
     assert "UVICORN_APP_IS_APP=True" in result.stdout, (
         f"uvicorn did not receive app.main.app.\nstdout: {result.stdout!r}"
+    )
+    assert "UVICORN_SERVER_RUN_CALLED=True" in result.stdout, (
+        f"server.run() was not called.\nstdout: {result.stdout!r}"
     )
