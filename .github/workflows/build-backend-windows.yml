@@ -140,7 +140,7 @@ jobs:
 
       - name: Install Electron dependencies
         working-directory: electron
-        run: npm ci
+        run: npm install
 
       - name: Electron main-process tests
         working-directory: electron
