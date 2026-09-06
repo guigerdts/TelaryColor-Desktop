@@ -191,6 +191,12 @@ jobs:
           echo "  - frontend/dist/index.html: present"
           echo "  - telarycolor-server.exe: present"
 
+      - name: Smoke test packaged backend (health + SPA + kill/relaunch)
+        # Runs the binary from the Electron-packaged path (resources/backend/)
+        # to verify it boots and serves from the real end-user location.
+        # Skip login/upload (already proven standalone) and size gate (different dir structure).
+        run: python uitka-build/smoke_binary.py --exe electron/dist/win-unpacked/resources/backend/telarycolor-server.exe --packaged
+
       - name: Upload validated binary artifact
         uses: actions/upload-artifact@v4
         with:

@@ -209,7 +209,8 @@ def hard_kill(proc: subprocess.Popen) -> None:
 
 
 def smoke(exe: Path, data_dir: Path, staged_dir: Path | None,
-          health_timeout: float, max_size_mb: int) -> int:
+          health_timeout: float, max_size_mb: int,
+          packaged: bool = False) -> int:
     seed_sandbox(BACKEND_DIR, data_dir)
 
     started = time.monotonic()
@@ -241,16 +242,26 @@ def smoke(exe: Path, data_dir: Path, staged_dir: Path | None,
     else:
         print(f"OK: boot chain wrote: {port_lines[0].strip()}", flush=True)
 
-    try:
-        token = login(base_url)
-        multipart_upload(base_url, token)
-        spa_served(base_url)
-    except Exception as exc:
-        _fail(f"runtime contract: {exc}")
-        hard_kill(proc)
-        return 1
+    if packaged:
+        # Packaged mode: skip login/upload (already proven standalone);
+        # keep SPA check (frontend/dist resolution is path-dependent).
+        try:
+            spa_served(base_url)
+        except Exception as exc:
+            _fail(f"packaged SPA contract: {exc}")
+            hard_kill(proc)
+            return 1
+    else:
+        try:
+            token = login(base_url)
+            multipart_upload(base_url, token)
+            spa_served(base_url)
+        except Exception as exc:
+            _fail(f"runtime contract: {exc}")
+            hard_kill(proc)
+            return 1
 
-    if staged_dir is not None:
+    if staged_dir is not None and not packaged:
         try:
             staged_size_gate(staged_dir, max_size_mb)
         except Exception as exc:
@@ -314,6 +325,12 @@ def main() -> int:
         default=200,
         help="Size gate for the staged folder in MiB (default 200).",
     )
+    parser.add_argument(
+        "--packaged",
+        action="store_true",
+        default=False,
+        help="Packaged mode: skip login/upload/size-gate; keep health+SPA+kill-relaunch.",
+    )
     args = parser.parse_args()
 
     exe = args.exe.resolve()
@@ -327,8 +344,11 @@ def main() -> int:
     data_dir.mkdir(parents=True, exist_ok=True)
     print(f"Sandbox TELARYCOLOR_DATA_DIR: {data_dir}", flush=True)
     print(f"Smoking binary: {exe}", flush=True)
+    if args.packaged:
+        print("Mode: PACKAGED (health + SPA + kill/relaunch only)", flush=True)
 
-    rc = smoke(exe, data_dir, args.staged_dir, args.health_timeout, args.max_size_mb)
+    rc = smoke(exe, data_dir, args.staged_dir, args.health_timeout,
+               args.max_size_mb, packaged=args.packaged)
     print("SMOKE PASS" if rc == 0 else "SMOKE FAILED", flush=True)
     return rc
 
