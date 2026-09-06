@@ -35,14 +35,22 @@ rules:
   archive:
     - Warn before merging destructive deltas
 
+# Testing capabilities (detected by sdd-init).
+# NOTE: two independent projects (backend/ + frontend/) with separate test
+# runners and commands; there is NO single workspace-wide test command that
+# covers every in-scope project. Per sdd-init Decision Gates, workspace-level
+# strict_tdd fails closed to false. Strict TDD is enforced PER-PROJECT using
+# each project's own command (below). sdd-apply/sdd-verify must pass the
+# per-project command for the slice they touch.
 testing:
-  strict_tdd: true
+  strict_tdd: false          # workspace-level: no single command covers all projects
+  per_project_strict_tdd: true
   backend:
     runner: pytest
-    command: "pytest"
-    test_dirs: ["tests/"]
-    coverage: "pytest --cov"
+    command: "backend/.venv/bin/python -m pytest"
+    test_dirs: ["backend/tests/"]
+    coverage: "backend/.venv/bin/python -m pytest --cov"
   frontend:
     runner: vitest
-    command: "npm test"
+    command: "npm test"       # run from frontend/ -> vitest run
     coverage: "npm test -- --coverage"
