@@ -16,6 +16,7 @@ on:
       - 'uitka-build/**'
       - 'frontend/dist/**'
       - '.github/workflows/build-backend-windows.yml'
+      - 'electron/**'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +29,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail fast — frontend/ must not change
+        if: success()
+        shell: bash
+        run: |
+          if ! git diff --quiet HEAD -- frontend/; then
+            echo "::error::frontend/ files were modified — this workflow must not change the frontend. Revert frontend/ changes."
+            git diff --stat HEAD -- frontend/
+            exit 1
+          fi
+          echo "OK: frontend/ untouched"
+
+      - name: Fail fast — frontend/ vs base (push only)
+        if: success() && github.event_name == 'push'
+        shell: bash
+        run: |
+          if ! git diff --quiet "${{ github.event.before }}" HEAD -- frontend/; then
+            echo "::error::frontend/ changed between base and HEAD — not allowed in this PR"
+            git diff --stat "${{ github.event.before }}" HEAD -- frontend/
+            exit 1
+          fi
+          echo "OK: frontend/ unchanged vs base"
 
       - name: Setup Python 3.13
         uses: actions/setup-python@v5
@@ -97,6 +122,15 @@ jobs:
           npm ci
           npm run build
 
+      - name: Post-build dist drift check
+        shell: bash
+        run: |
+          if ! git diff --quiet HEAD -- frontend/dist; then
+            echo "::warning::frontend/dist has uncommitted changes after build — consider committing the updated dist"
+            git diff --stat HEAD -- frontend/dist
+          fi
+          echo "OK: dist drift check complete"
+
       - name: Stage distributable (binary + alembic + alembic.ini + frontend/dist)
         # Nuitka names the dist dir after the source file: entry.py → entry.dist/
         run: python uitka-build/stage_dist.py --exe build/entry.dist/telarycolor-server.exe
@@ -104,10 +138,73 @@ jobs:
       - name: Smoke test staged binary
         run: python uitka-build/smoke_binary.py --exe build/entry.dist/telarycolor-server.exe --staged-dir build/entry.dist
 
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm ci
+
+      - name: Electron main-process tests
+        working-directory: electron
+        run: npm test
+
+      - name: Package desktop app (electron-builder)
+        working-directory: electron
+        run: npx electron-builder --win --x64
+
+      - name: Verify packaged layout
+        shell: bash
+        run: |
+          BACKEND_DIR="electron/dist/win-unpacked/resources/backend"
+          echo "Checking packaged layout in $BACKEND_DIR ..."
+
+          # 1. entry.dist naming: Nuitka names dist after entry.py, NOT telarycolor-server
+          #    This would have caught the Fase 1 naming bug before smoke test
+          if [ ! -d "$BACKEND_DIR" ]; then
+            echo "::error::resources/backend/ directory not found — entry.dist naming may be wrong"
+            find electron/dist/win-unpacked/resources/ -maxdepth 2 -type d 2>/dev/null || true
+            exit 1
+          fi
+
+          # 2. alembic.ini must be present (draft layout omitted it — broke migrations)
+          if [ ! -f "$BACKEND_DIR/alembic.ini" ]; then
+            echo "::error::alembic.ini missing from resources/backend/ — migrations will fail"
+            ls -la "$BACKEND_DIR/" 2>/dev/null || true
+            exit 1
+          fi
+
+          # 3. frontend/dist must be present (SPA must be in the bundle)
+          if [ ! -f "$BACKEND_DIR/frontend/dist/index.html" ]; then
+            echo "::error::frontend/dist/index.html missing — SPA will 404"
+            ls -la "$BACKEND_DIR/frontend/dist/" 2>/dev/null || true
+            exit 1
+          fi
+
+          # 4. Backend exe must exist at the correct path
+          if [ ! -f "$BACKEND_DIR/telarycolor-server.exe" ]; then
+            echo "::error::telarycolor-server.exe not found in resources/backend/"
+            ls -la "$BACKEND_DIR/" 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "OK: all 4 layout checks passed"
+          echo "  - entry.dist naming: resources/backend/ exists"
+          echo "  - alembic.ini: present"
+          echo "  - frontend/dist/index.html: present"
+          echo "  - telarycolor-server.exe: present"
+
       - name: Upload validated binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: telarycolor-server-windows
           path: build/entry.dist/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: telarycolor-desktop-windows
+          path: |
+            electron/dist/win-unpacked/
+            electron/dist/TelaryColor-Setup-*.exe
           if-no-files-found: error
           retention-days: 14
