@@ -25,4 +25,27 @@ module.exports = Object.freeze({
 
   // /health readiness gate before loading the window.
   HEALTH_GATE_TIMEOUT_MS: 5000,
+
+  // ------------------------------------------------------------------
+  // Fase 3 retry / update constants (design D1, D5).
+  // ------------------------------------------------------------------
+
+  // Max restart attempts after an unexpected backend child exit. After the
+  // 3rd failed attempt the shell shows the error dialog and quits.
+  RETRY_MAX_ATTEMPTS: 3,
+
+  // Exponential backoff base: delay = 1000 * 2^attempt (1s, 2s, 4s).
+  RETRY_BASE_DELAY_MS: 1000,
+
+  // Time budget to probe whether the previous backend port is reusable
+  // after a crash. Same value as BACKEND_PROBE_TIMEOUT_MS (a live /health
+  // must answer within this window) under a retry-specific name.
+  PORT_PROBE_TIMEOUT_MS: 3000,
+
+  // Windows AppUserModelID — groups all notifications under one app
+  // identity (required for reliable notification delivery on Windows).
+  APP_USER_MODEL_ID: 'com.telarycolor.app',
+
+  // Auto-update check cadence: every 4 hours, non-blocking (design D5).
+  UPDATE_CHECK_INTERVAL_MS: 4 * 60 * 60 * 1000,
 });

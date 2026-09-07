@@ -7,6 +7,9 @@
     "test": "node --test",
     "dist": "electron-builder --win --x64"
   },
+  "dependencies": {
+    "electron-updater": "^6.0.0"
+  },
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0"
@@ -43,6 +46,11 @@
       "shortcutName": "TelaryColor"
     },
     "asar": true,
-    "npmRebuild": false
+    "npmRebuild": false,
+    "publish": {
+      "provider": "github",
+      "owner": "guigerdts",
+      "repo": "TelaryColor-Desktop"
+    }
   }
 }
