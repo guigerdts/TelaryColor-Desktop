@@ -21,6 +21,16 @@ test('main.js exists and is loadable source', () => {
   assert.ok(content.length > 50, 'main.js must contain substantial code');
 });
 
+const TRAY_PATH = path.join(__dirname, '..', 'src', 'tray.js');
+
+test('tray module exists and exports createTray', () => {
+  const exists = fs.existsSync(TRAY_PATH);
+  assert.ok(exists, 'electron/src/tray.js must exist');
+  delete require.cache[TRAY_PATH];
+  const tray = require(TRAY_PATH);
+  assert.equal(typeof tray.createTray, 'function', 'tray must export createTray');
+});
+
 test('main.js requires Electron runtime — verified in CI smoke', () => {
   // Attempting require('./main.js') in a non-Electron environment will
   // either throw because 'electron' module is missing, or because the

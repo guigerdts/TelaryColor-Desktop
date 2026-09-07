@@ -14,6 +14,7 @@ const { app, dialog, BrowserWindow, ipcMain } = require('electron');
 
 const { backendExePath, deriveDataDir, portFile } = require('./src/paths');
 const { resolveBackend, shutdown } = require('./src/lifecycle');
+const { createTray } = require('./src/tray');
 
 // ---------------------------------------------------------------------------
 // Single-instance lock (design D2)
@@ -31,6 +32,7 @@ if (!gotLock) {
   let mainWindow = null;
   let backendState = null; // { mode, child, port } from resolveBackend
   let shuttingDown = false;
+  let isQuitting = false;
 
   // ---------------------------------------------------------------------------
   // Derive paths (design D6: same shell for dev and packaged)
@@ -49,6 +51,7 @@ if (!gotLock) {
   // ---------------------------------------------------------------------------
   app.on('second-instance', () => {
     if (mainWindow) {
+      if (!mainWindow.isVisible()) mainWindow.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }
@@ -106,6 +109,15 @@ if (!gotLock) {
     // Load the backend UI
     mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
+    // Create system tray (design: Tray Quick-Access)
+    const tray = createTray({
+      mainWindow,
+      onQuit: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    });
+
     // Detect unexpected child exit while window is open (design: "Unexpected
     // child exit while window open → ERROR_DIALOG + QUIT")
     if (backendState.child) {
@@ -124,10 +136,18 @@ if (!gotLock) {
   });
 
   // ---------------------------------------------------------------------------
+  // Window-all-closed — no-op when tray keeps app alive
+  // ---------------------------------------------------------------------------
+  app.on('window-all-closed', () => {
+    // Tray keeps the app alive even after all windows are closed
+  });
+
+  // ---------------------------------------------------------------------------
   // Shutdown (design D3: kill only if WE spawned)
   // ---------------------------------------------------------------------------
   app.on('before-quit', async (event) => {
     if (shuttingDown) return;
+    isQuitting = true;
     event.preventDefault();
     shuttingDown = true;
 
