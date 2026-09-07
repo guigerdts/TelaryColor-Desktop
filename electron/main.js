@@ -42,6 +42,7 @@ if (!gotLock) {
   let backendState = null; // { mode, child, port } from resolveBackend
   let shuttingDown = false;
   let isQuitting = false;
+  let updater = null; // { checkForUpdates, quitAndInstall } from initUpdater
 
   // ---------------------------------------------------------------------------
   // Derive paths (design D6: same shell for dev and packaged)
@@ -165,11 +166,15 @@ if (!gotLock) {
     });
 
     // Wire auto-updater (design D5: install-on-quit)
-    initUpdater({
+    updater = initUpdater({
       onAvailable: (version) => {
         notifyUpdateAvailable(version);
       },
     });
+    // Check for updates after a short delay (non-blocking)
+    setTimeout(() => {
+      if (!isQuitting) updater.checkForUpdates();
+    }, 3000);
   });
 
   // ---------------------------------------------------------------------------
@@ -196,7 +201,12 @@ if (!gotLock) {
       }
     }
 
-    app.quit();
+    // Install pending update on quit (design D5)
+    if (updater && updater.quitAndInstall) {
+      updater.quitAndInstall();
+    } else {
+      app.quit();
+    }
   });
 
   // ---------------------------------------------------------------------------
