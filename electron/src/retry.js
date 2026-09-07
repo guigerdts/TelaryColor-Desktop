@@ -92,7 +92,7 @@ function startCrashRetry(opts, deps = {}) {
           onReload(result.port);
         } else {
           // Different port — user needs to re-login
-          notify('Backend restarted on a new port. Please re-login.');
+          notify('restarted', attempt);
           onReload(result.port);
         }
 

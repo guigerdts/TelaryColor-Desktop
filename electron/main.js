@@ -15,6 +15,15 @@ const { app, dialog, BrowserWindow, ipcMain } = require('electron');
 const { backendExePath, deriveDataDir, portFile } = require('./src/paths');
 const { resolveBackend, shutdown } = require('./src/lifecycle');
 const { createTray } = require('./src/tray');
+const { startCrashRetry } = require('./src/retry');
+const {
+  notifyBackendStarted,
+  notifyBackendRestarted,
+  notifyBackendFailed,
+  notifyUpdateAvailable,
+  initNotifications,
+} = require('./src/notifications');
+const { initUpdater } = require('./src/updater');
 
 // ---------------------------------------------------------------------------
 // Single-instance lock (design D2)
@@ -33,6 +42,7 @@ if (!gotLock) {
   let backendState = null; // { mode, child, port } from resolveBackend
   let shuttingDown = false;
   let isQuitting = false;
+  let updater = null; // { checkForUpdates, quitAndInstall } from initUpdater
 
   // ---------------------------------------------------------------------------
   // Derive paths (design D6: same shell for dev and packaged)
@@ -61,6 +71,8 @@ if (!gotLock) {
   // App ready — resolve backend then create window
   // ---------------------------------------------------------------------------
   app.whenReady().then(async () => {
+    initNotifications();
+
     try {
       backendState = await resolveBackend({ exePath, dataDir, portFile: portFilePath, isPackaged });
     } catch (err) {
@@ -109,6 +121,9 @@ if (!gotLock) {
     // Load the backend UI
     mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
+    // Notify user backend is ready (design: Main-Process Status Notifications)
+    notifyBackendStarted();
+
     // Create system tray (design: Tray Quick-Access)
     const tray = createTray({
       mainWindow,
@@ -118,21 +133,48 @@ if (!gotLock) {
       },
     });
 
-    // Detect unexpected child exit while window is open (design: "Unexpected
-    // child exit while window open → ERROR_DIALOG + QUIT")
-    if (backendState.child) {
-      backendState.child.on('exit', (code, signal) => {
-        if (shuttingDown) return; // expected during normal shutdown
-        const reason = signal
-          ? `killed by signal ${signal}`
-          : `exited with code ${code}`;
+    // Wire crash retry (design: retry state machine)
+    startCrashRetry({
+      backendState,
+      exePath,
+      dataDir,
+      portFile: portFilePath,
+      isPackaged,
+      onReload: (newPort) => {
+        // Re-apply security handlers for new port
+        mainWindow.webContents.on('will-navigate', (event, url) => {
+          const allowed = `http://127.0.0.1:${newPort}`;
+          if (!url.startsWith(allowed)) {
+            event.preventDefault();
+          }
+        });
+        mainWindow.loadURL(`http://127.0.0.1:${newPort}`);
+      },
+      onPermanentFail: () => {
+        notifyBackendFailed();
         dialog.showErrorBox(
           'Backend Crashed',
-          `The backend server ${reason} unexpectedly.\n\nThe application will now close.`
+          'The backend server failed to restart after multiple attempts.\n\nThe application will now close.'
         );
         app.quit();
-      });
-    }
+      },
+      notify: (event, ...args) => {
+        if (event === 'started') notifyBackendStarted();
+        else if (event === 'restarted') notifyBackendRestarted(args[0]);
+        else if (event === 'failed') notifyBackendFailed();
+      },
+    });
+
+    // Wire auto-updater (design D5: install-on-quit)
+    updater = initUpdater({
+      onAvailable: (version) => {
+        notifyUpdateAvailable(version);
+      },
+    });
+    // Check for updates after a short delay (non-blocking)
+    setTimeout(() => {
+      if (!isQuitting) updater.checkForUpdates();
+    }, 3000);
   });
 
   // ---------------------------------------------------------------------------
@@ -159,7 +201,12 @@ if (!gotLock) {
       }
     }
 
-    app.quit();
+    // Install pending update on quit (design D5)
+    if (updater && updater.quitAndInstall) {
+      updater.quitAndInstall();
+    } else {
+      app.quit();
+    }
   });
 
   // ---------------------------------------------------------------------------
