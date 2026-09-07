@@ -122,7 +122,7 @@ test('integration: port change triggers re-login notification via notify', async
       isPackaged: false,
       onReload: () => {},
       onPermanentFail: () => {},
-      notify: (msg) => { notifyCalls.push(msg); },
+      notify: (event, ...args) => { notifyCalls.push({ event, args }); },
     },
     {
       resolveBackend: async () => ({ mode: 'spawned', child: fakeChild(2002), port: 9090 }),
@@ -135,11 +135,12 @@ test('integration: port change triggers re-login notification via notify', async
   timers.flush();
   await new Promise((r) => setImmediate(r));
 
-  // retry.js calls notify with a message string on port change
+  // retry.js calls notify('restarted', attempt) on port change
   assert.ok(notifyCalls.length > 0, 'notify was called');
-  assert.ok(
-    notifyCalls[0].includes('re-login'),
-    `notification should mention re-login, got: ${notifyCalls[0]}`
+  assert.equal(
+    notifyCalls[0].event,
+    'restarted',
+    'notify called with restarted event'
   );
 });
 
@@ -213,7 +214,7 @@ test('integration: same port recovery does NOT trigger re-login notification', a
       isPackaged: false,
       onReload: () => {},
       onPermanentFail: () => {},
-      notify: (msg) => { notifyCalls.push(msg); },
+      notify: (event, ...args) => { notifyCalls.push({ event, args }); },
     },
     {
       resolveBackend: async () => ({ mode: 'reused', child: null, port: 8080 }),
@@ -252,7 +253,7 @@ test('integration: sequential crashes with different ports trigger notifications
       isPackaged: false,
       onReload: (port) => { reloadPorts.push(port); },
       onPermanentFail: () => {},
-      notify: (msg) => { notifyCalls.push(msg); },
+      notify: (event, ...args) => { notifyCalls.push({ event, args }); },
     },
     {
       resolveBackend: async () => {

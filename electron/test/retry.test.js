@@ -183,7 +183,8 @@ test('different port → notify called, onReload called with new port', async ()
 
   const timers = fakeTimers();
   let reloadPort = null;
-  let notifyMessage = null;
+  let notifyEvent = null;
+  let notifyArgs = [];
 
   startCrashRetry(
     {
@@ -194,7 +195,7 @@ test('different port → notify called, onReload called with new port', async ()
       isPackaged: false,
       onReload: (port) => { reloadPort = port; },
       onPermanentFail: () => {},
-      notify: (msg) => { notifyMessage = msg; },
+      notify: (event, ...args) => { notifyEvent = event; notifyArgs = args; },
     },
     {
       resolveBackend: async () => ({ mode: 'spawned', child: fakeChild(2002), port: 9090 }),
@@ -207,8 +208,8 @@ test('different port → notify called, onReload called with new port', async ()
   await new Promise((r) => setImmediate(r));
 
   assert.equal(reloadPort, 9090);
-  assert.ok(notifyMessage, 'notify should be called with a message');
-  assert.ok(notifyMessage.includes('re-login'), 'message should mention re-login');
+  assert.equal(notifyEvent, 'restarted', 'notify called with restarted event');
+  assert.ok(notifyArgs[0] > 0, 'attempt number passed');
 });
 
 // ---------------------------------------------------------------------------

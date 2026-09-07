@@ -20,8 +20,10 @@ const {
   notifyBackendStarted,
   notifyBackendRestarted,
   notifyBackendFailed,
+  notifyUpdateAvailable,
   initNotifications,
 } = require('./src/notifications');
+const { initUpdater } = require('./src/updater');
 
 // ---------------------------------------------------------------------------
 // Single-instance lock (design D2)
@@ -159,6 +161,13 @@ if (!gotLock) {
         if (event === 'started') notifyBackendStarted();
         else if (event === 'restarted') notifyBackendRestarted(args[0]);
         else if (event === 'failed') notifyBackendFailed();
+      },
+    });
+
+    // Wire auto-updater (design D5: install-on-quit)
+    initUpdater({
+      onAvailable: (version) => {
+        notifyUpdateAvailable(version);
       },
     });
   });
