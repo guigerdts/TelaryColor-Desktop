@@ -5,7 +5,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "dist": "electron-builder --win --x64"
+    "dist": "electron-builder --win --x64 --publish never",
+    "release": "electron-builder --win --x64 --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.0.0"
@@ -36,7 +37,8 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "TelaryColor-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
