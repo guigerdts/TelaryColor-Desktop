@@ -37,12 +37,12 @@ Chain strategy: pending
 
 ## Phase 3: Consolidated release workflow
 
-- [ ] 3.1 Modify `.github/workflows/build-backend-windows.yml`: electron-builder step gains `--publish never` (CI stays publish-free)
-- [ ] 3.2 Rewrite `.github/workflows/release-desktop.yml` as ONE job, step order (D1): pip deps + cp313 wheel-verify (open question resolved: keep), `python uitka-build/compile.py --output-dir build`, frontend `npm ci` + `npm run build`, `python uitka-build/stage_dist.py --exe build/entry.dist/telarycolor-server.exe`, `smoke_binary.py` staged `--max-size-mb 500`, `node scripts/derive-version.mjs ${{ github.ref_name }}`, electron `npm ci` + `npm test`, `npx electron-builder --win --x64 --publish always` (`GH_TOKEN`), 4 layout checks, installer ≤500 MB check, `smoke_binary.py --packaged`, `gh release view` asset assert — publish MUST be the last step
+- [x] 3.1 Modify `.github/workflows/build-backend-windows.yml`: electron-builder step gains `--publish never` (CI stays publish-free)
+- [x] 3.2 Rewrite `.github/workflows/release-desktop.yml` as ONE job, step order (D1): pip deps + cp313 wheel-verify (open question resolved: keep), `python uitka-build/compile.py --output-dir build`, frontend `npm ci` + `npm run build`, `python uitka-build/stage_dist.py --exe build/entry.dist/telarycolor-server.exe`, `smoke_binary.py` staged `--max-size-mb 500`, `node scripts/derive-version.mjs ${{ github.ref_name }}`, electron `npm ci` + `npm test`, `npx electron-builder --win --x64 --publish always` (`GH_TOKEN`), 4 layout checks, installer ≤500 MB check, `smoke_binary.py --packaged`, `gh release view` asset assert — publish MUST be the last step
 
 ## Phase 4: Verification & E2E gate
 
-- [ ] 4.1 `node --test scripts/derive-version.test.mjs` passes green
-- [ ] 4.2 Syntax-check both workflows (`actionlint` or equivalent)
-- [ ] 4.3 Create `RELEASE_NOTES.md`: SmartScreen "Unknown publisher" documented as ACCEPTED limitation, no signing
+- [x] 4.1 `node --test scripts/derive-version.test.mjs` passes green
+- [x] 4.2 Syntax-check both workflows (`actionlint` or equivalent)
+- [x] 4.3 Create `RELEASE_NOTES.md`: SmartScreen "Unknown publisher" documented as ACCEPTED limitation, no signing
 - [ ] 4.4 E2E: push `v0.1.0-test` → run completes; `gh release view v0.1.0-test --json assets` contains `TelaryColor-Setup-0.1.0-test.exe`
