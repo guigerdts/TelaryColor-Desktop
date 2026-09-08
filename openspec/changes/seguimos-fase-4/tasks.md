@@ -25,15 +25,15 @@ Chain strategy: pending
 
 ## Phase 1: Foundation — version derivation & config
 
-- [ ] 1.1 RED: write `scripts/derive-version.test.mjs` adversarial tests (`node --test`): `v1.2.3`→`1.2.3`; reject hostile test inputs — literal unit-test VALUES, not edit paths (do NOT backtick path-like test values): the string "../../x" as a path-traversal example, a value with spaces like "a b", a value with a semicolon like "x;rm", and a Windows-style path value like "C:\bad" (hostile tag → package.json injection)
-- [ ] 1.2 Create `scripts/derive-version.mjs`: read github.ref_name, strip leading v, validate the ref against a strict safe pattern (must start with a letter or digit and contain only letters, digits, dots, and single hyphens; reject the slash character, the backslash character, whitespace, and consecutive dots — these are validation characters, not paths), write version to `electron/package.json`, exit non-zero on violation
-- [ ] 1.3 Modify `electron/package.json`: `build.win.artifactName` = `TelaryColor-Setup-${version}.${ext}`; `dist` → `--publish never`; add `release` → `--publish always`
+- [x] 1.1 RED: write `scripts/derive-version.test.mjs` adversarial tests (`node --test`): `v1.2.3`→`1.2.3`; reject hostile test inputs — literal unit-test VALUES, not edit paths (do NOT backtick path-like test values): the string "../../x" as a path-traversal example, a value with spaces like "a b", a value with a semicolon like "x;rm", and a Windows-style path value like "C:\bad" (hostile tag → package.json injection)
+- [x] 1.2 Create `scripts/derive-version.mjs`: read github.ref_name, strip leading v, validate the ref against a strict safe pattern (must start with a letter or digit and contain only letters, digits, dots, and single hyphens; reject the slash character, the backslash character, whitespace, and consecutive dots — these are validation characters, not paths), write version to `electron/package.json`, exit non-zero on violation
+- [x] 1.3 Modify `electron/package.json`: `build.win.artifactName` = `TelaryColor-Setup-${version}.${ext}`; `dist` → `--publish never`; add `release` → `--publish always`
 
 ## Phase 2: Real icons & assets (user-delivered)
 
-- [ ] 2.1 Verify `electron/assets/icon.ico` (256×256 frame, 30,017 B) then regenerate multi-resolution ICO (16/24/32/48/64/128/256) from the real 256×256 frame (electron-icon-maker from extracted PNG, or Pillow); keep artifact at `electron/assets/icon.ico`
-- [ ] 2.2 Resize `electron/assets/tray-icon.png` 1254×1254 (912 KB) → 32×32, a few KB (ImageMagick or Pillow); keep artifact at `electron/assets/tray-icon.png`
-- [ ] 2.3 Rewrite `electron/assets/README.md`: both files delivered (real logo), remove stale `frontend/public/icon-512.png` references, document current regeneration/resize commands
+- [x] 2.1 Verify `electron/assets/icon.ico` (256×256 frame, 30,017 B) then regenerate multi-resolution ICO (16/24/32/48/64/128/256) from the real 256×256 frame (electron-icon-maker from extracted PNG, or Pillow); keep artifact at `electron/assets/icon.ico`
+- [x] 2.2 Resize `electron/assets/tray-icon.png` 1254×1254 (912 KB) → 32×32, a few KB (ImageMagick or Pillow); keep artifact at `electron/assets/tray-icon.png`
+- [x] 2.3 Rewrite `electron/assets/README.md`: both files delivered (real logo), remove stale `frontend/public/icon-512.png` references, document current regeneration/resize commands
 
 ## Phase 3: Consolidated release workflow
 
