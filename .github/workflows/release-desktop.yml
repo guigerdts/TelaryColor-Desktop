@@ -199,3 +199,18 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assert release is published (not draft)
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          STATE=$(gh release view "$TAG" --json isDraft,publishedAt \
+            --jq 'if .isDraft then "draft" elif (.publishedAt == null) then "unpublished" else "published" end')
+          echo "Release $TAG state: $STATE"
+          if [ "$STATE" != "published" ]; then
+            echo "::error::Release $TAG is '$STATE' (publishedAt is null or draft=true) — electron-builder --publish always must leave the release published. A pre-existing draft or failed publish must NOT be treated as success."
+            exit 1
+          fi
+          echo "OK: release $TAG is published — auto-update feed (latest.yml) is publicly consumable"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
