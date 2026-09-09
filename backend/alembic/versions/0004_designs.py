@@ -87,7 +87,10 @@ def downgrade() -> None:
     # SQLite cannot ALTER a constraint and refuses to DROP COLUMN while a
     # table-level FK references it, so the design_id removal also runs in
     # batch mode: the FK constraint is dropped first, then the column, in a
-    # single copy-and-move pass.
+    # single copy-and-move pass. Batch mode DOES reflect foreign keys by
+    # name here (proven by the running downgrade chain); the historical
+    # KeyError was a double-undo from 0005_hex_color.downgrade, which used
+    # to drop these same 0004 additions before this migration ran.
     with op.batch_alter_table("inventory_transactions") as batch_op:
         batch_op.drop_constraint(
             "fk_inventory_transactions_design_id", type_="foreignkey"
