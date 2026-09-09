@@ -45,4 +45,5 @@ Chain strategy: pending
 - [x] 4.1 `node --test scripts/derive-version.test.mjs` passes green
 - [x] 4.2 Syntax-check both workflows (`actionlint` or equivalent)
 - [x] 4.3 Create `RELEASE_NOTES.md`: SmartScreen "Unknown publisher" documented as ACCEPTED limitation, no signing
-- [ ] 4.4 E2E: push `v0.1.0-test` → run completes; `gh release view v0.1.0-test --json assets` contains `TelaryColor-Setup-0.1.0-test.exe`
+- [x] 4.4 E2E: push `v0.1.0-test` → run completes; `gh release view v0.1.0-test --json assets` contains `TelaryColor-Setup-0.1.0-test.exe` — EVIDENCE: GH Actions run 34228247653 (release-desktop.yml, event=push, headSha=1471139c) status=completed, conclusion=success; release v0.1.0-test assets include TelaryColor-Setup-0.1.0-test.exe (109,332,096 B, ≤ 500 MB gate)
+- [x] 4.5 Post-publish hardening (bug fix): add non-draft assert step to release-desktop.yml after the asset check — fails explicitly if `gh release view $TAG` reports `isDraft=true` or `publishedAt=null` (a pre-existing draft must NOT absorb `--publish always` silently, as happened with v0.1.0-test) — EVIDENCE: workflow now ends with "Assert release is published (not draft)" step; release v0.1.0-test published via `gh release edit --draft=false` (isDraft=false, publishedAt=2026-09-09T00:02:25Z, latest.yml + .exe + .blockmap all HTTP 200)

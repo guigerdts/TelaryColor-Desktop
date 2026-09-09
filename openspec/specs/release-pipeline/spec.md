@@ -89,3 +89,21 @@ Before change close, tag `v0.1.0-test` MUST run the full pipeline (build → pac
 - GIVEN tag `v0.1.0-test` is pushed
 - WHEN the workflow completes successfully
 - THEN the asset `TelaryColor-Setup-0.1.0-test.exe` is present in GitHub Releases
+
+### Requirement: Published-Not-Draft Guarantee
+
+`electron-builder --publish always` MUST leave the release in a published state, not a draft. A pre-existing draft release MUST NOT absorb the publish silently: the workflow MUST include a post-publish assertion that fails the run if the tagged release still has `isDraft=true` or no `publishedAt`. This guarantees `latest.yml` is publicly consumable by electron-updater.
+
+#### Scenario: Publish absorbed by a pre-existing draft fails the run
+
+- GIVEN a draft release already exists for the pushed tag
+- WHEN `electron-builder --publish always` uploads assets into that draft
+- THEN the post-publish assertion detects `isDraft=true`
+- AND the run fails explicitly instead of reporting success
+
+#### Scenario: Published release passes the assertion
+
+- GIVEN the workflow publishes the tagged release
+- WHEN the post-publish assertion runs
+- THEN `isDraft` is false, `publishedAt` is set
+- AND `latest.yml` is downloadable from the published release
